@@ -32,7 +32,12 @@
                 "ports": [{
                     "containerPort": 5000,
                     "hostPort": 5000
-                }]
+                }],
+                "volumes": [{
+                    "containerPath": "//var/run/docker.sock",
+                    "localPath": "//var/run/docker.sock"
+                }],
+                "network": "my_network"
             },
             "python": {
                 "args": [

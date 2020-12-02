@@ -17,8 +17,8 @@ WORKDIR /app
 COPY src/ /app/src
 
 # Switching to a non-root user, please refer to https://aka.ms/vscode-docker-python-user-rights
-RUN useradd appuser && chown -R appuser /app
-USER appuser
+# RUN useradd appuser && chown -R appuser /app
+# USER appuser
 
 # During debugging, this entry point will be overridden. For more information, please refer to https://aka.ms/vscode-docker-python-debug
 CMD ["gunicorn", "--bind", "0.0.0.0:5000", "src.server:app"]
