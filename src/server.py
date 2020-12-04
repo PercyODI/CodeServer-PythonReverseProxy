@@ -10,6 +10,15 @@ from functools import wraps
 from werkzeug.routing import PathConverter
 import docker
 import time
+import debugpy
+
+
+print("Running")
+
+debugpy.listen(("0.0.0.0", 5678))
+print("⏳ VS Code debugger can now be attached, press F5 in VS Code ⏳", flush=True)
+debugpy.wait_for_client()
+print("🎉 VS Code debugger attached, enjoy debugging 🎉", flush=True)
 
 load_dotenv(find_dotenv())
 
@@ -84,17 +93,22 @@ def logout():
         'not_logged_in', _external=True), 'client_id': env["CLIENT_ID"]}
     return redirect(auth0.api_base_url + '/v2/logout?' + urlencode(params))
 
+
 @app.route("/<path:subpath>")
 @app.route("/devenv", defaults={"subpath": None})
 @requires_auth
 def devenv(subpath):
     container_name = session["profile"]["user_id"].replace("|", "_")
-    try:
-        client.containers.get(container_name)
-    except docker.errors.NotFound:
-        client.containers.run("codercom/code-server:latest", "--auth none", detach=True, name=container_name, ports={8080:8080}, network="my_network")
+    # try:
+    if container_name in [x.name for x in client.containers.list()]:
+        container = client.containers.get(container_name)
+        if container.status != "running":
+            container.start()
+    else:
+        client.containers.run("codercom/code-server:latest", "--auth none", detach=True,
+                            name=container_name, ports={8080: 8080}, network="my_network")
         time.sleep(5)
-    
+
     if subpath is not None:
         resp = requests.get(f"http://{container_name}:8080/{subpath}")
     else:

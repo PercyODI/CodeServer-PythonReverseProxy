@@ -29,14 +29,18 @@
                 "env": {
                     "FLASK_APP": "src/server.py"
                 },
-                "ports": [{
-                    "containerPort": 5000,
-                    "hostPort": 5000
-                }],
-                "volumes": [{
-                    "containerPath": "//var/run/docker.sock",
-                    "localPath": "//var/run/docker.sock"
-                }],
+                "ports": [
+                    {
+                        "containerPort": 5000,
+                        "hostPort": 5000
+                    }
+                ],
+                "volumes": [
+                    {
+                        "containerPath": "/var/run/docker.sock",
+                        "localPath": "/var/run/docker-host.sock"
+                    }
+                ],
                 "network": "my_network"
             },
             "python": {
@@ -51,6 +55,20 @@
                 ],
                 "module": "flask"
             }
+        },
+        {
+            "type": "npm",
+            "script": "debug",
+            "problemMatcher": [],
+            "label": "npm run debug",
+            "detail": ""
+        },
+        {
+            "type": "npm",
+            "script": "stop",
+            "problemMatcher": [],
+            "label": "npm run stop",
+            "detail": ""
         }
     ]
 }

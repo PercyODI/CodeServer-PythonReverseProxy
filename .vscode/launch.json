@@ -18,6 +18,44 @@
                 ],
                 "projectType": "flask"
             }
+        },
+        {
+            "name": "Docker Run",
+            "request": "attach",
+            "type": "docker",
+            "preLaunchTask": "npm run debug",
+            "containerName": "PyRevProx",
+            "platform": "netCore"
+        },
+        {
+            
+            "name": "Python Attach",
+            "type": "python",
+            "request": "attach",
+            "port": 5678,
+            "host": "host.docker.internal",
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}/src",
+                    "remoteRoot": "/app"
+                }
+            ],
+            "preLaunchTask": "npm run debug",
+            "postDebugTask": "npm run stop"
+        },
+        {
+            
+            "name": "Python Direct Attach",
+            "type": "python",
+            "request": "attach",
+            "port": 5678,
+            "host": "host.docker.internal",
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}/src",
+                    "remoteRoot": "/app"
+                }
+            ]
         }
     ]
 }

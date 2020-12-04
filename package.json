@@ -1,0 +1,23 @@
+{
+  "name": "codeserver-pythonreverseproxy",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/server.py",
+  "scripts": {
+    "build": "docker build -t pyrevprox:latest .",
+    "start:dev": "npm run stop; npm run rm ; docker run --name pyrevprox -v /var/run/docker.sock:/var/run/docker.sock -p 5000:5000 -p 5678:5678 --network my_network -d pyrevprox:latest && sleep 2s",
+    "debug": "npm run build && npm run start:dev",
+    "stop": "docker stop pyrevprox",
+    "rm": "docker rm pyrevprox"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PercyODI/CodeServer-PythonReverseProxy.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/PercyODI/CodeServer-PythonReverseProxy/issues"
+  },
+  "homepage": "https://github.com/PercyODI/CodeServer-PythonReverseProxy#readme"
+}

@@ -1,5 +1,5 @@
 # For more information, please refer to https://aka.ms/vscode-docker-python
-FROM python:3.8-slim-buster
+FROM python:3.9-slim-buster
 
 EXPOSE 5000
 
@@ -14,11 +14,11 @@ ADD src/requirements.txt .
 RUN python -m pip install -r requirements.txt
 
 WORKDIR /app
-COPY src/ /app/src
+COPY /src /app
 
 # Switching to a non-root user, please refer to https://aka.ms/vscode-docker-python-user-rights
 # RUN useradd appuser && chown -R appuser /app
 # USER appuser
 
 # During debugging, this entry point will be overridden. For more information, please refer to https://aka.ms/vscode-docker-python-debug
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "src.server:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--timeout", "3600", "server:app"]
