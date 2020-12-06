@@ -21,4 +21,5 @@ COPY /src /app
 # USER appuser
 
 # During debugging, this entry point will be overridden. For more information, please refer to https://aka.ms/vscode-docker-python-debug
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--timeout", "3600", "server:app"]
+# CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--timeout", "3600", "-k", "flask_sockets.worker", "server:app"]
+CMD ["python", "server.py"]

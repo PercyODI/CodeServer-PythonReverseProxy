@@ -5,7 +5,8 @@
   "main": "src/server.py",
   "scripts": {
     "build": "docker build -t pyrevprox:latest .",
-    "start:dev": "npm run stop; npm run rm ; docker run --name pyrevprox -v /var/run/docker.sock:/var/run/docker.sock -p 5000:5000 -p 5678:5678 --network my_network -d pyrevprox:latest && sleep 2s",
+    "start:dev": "npm run stop; npm run rm ; docker run --name pyrevprox -v /var/run/docker.sock:/var/run/docker.sock -p 5000:5000 -p 5678:5678 --network my_network -d -e DEBUG=True pyrevprox:latest && sleep 2s",
+    "start:dev:old": "npm run stop; npm run rm ; docker run --name pyrevprox -v /var/run/docker.sock:/var/run/docker.sock -p 5000:5000 -p 5678:5678 --network my_network -d -e GEVENT_SUPPORT=True -e DEBUG=True pyrevprox:latest && sleep 2s",
     "debug": "npm run build && npm run start:dev",
     "stop": "docker stop pyrevprox",
     "rm": "docker rm pyrevprox"

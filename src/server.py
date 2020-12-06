@@ -1,125 +1,92 @@
+import asyncio
 import json
 from os import environ as env
+from types import ClassMethodDescriptorType
 
-import requests
-from dotenv import load_dotenv, find_dotenv
-from flask import Flask, jsonify, redirect, render_template, session, url_for, request, Response
-from authlib.integrations.flask_client import OAuth
-from six.moves.urllib.parse import urlencode
-from functools import wraps
-from werkzeug.routing import PathConverter
-import docker
-import time
-import debugpy
+from aiohttp import client, web, ClientSession, WSMsgType
+import aiohttp_jinja2
+from dotenv import find_dotenv, load_dotenv
+import jinja2
 
-
-print("Running")
-
-debugpy.listen(("0.0.0.0", 5678))
-print("⏳ VS Code debugger can now be attached, press F5 in VS Code ⏳", flush=True)
-debugpy.wait_for_client()
-print("🎉 VS Code debugger attached, enjoy debugging 🎉", flush=True)
+import if_debug
+from code_server_manager import CodeServerManager
 
 load_dotenv(find_dotenv())
+if_debug.attach_debugger_if_dev()
+code_server_manager = CodeServerManager()
 
-app = Flask(__name__, static_url_path="/notstatic")
-app.secret_key = env["SESSION_KEY"]
-# port = env["PORT"]
-
-oauth = OAuth(app)
-
-auth0 = oauth.register(
-    "auth0",
-    client_id=env["CLIENT_ID"],
-    client_secret=env["CLIENT_SECRET"],
-    api_base_url=env["AUTH0_BASE"],
-    access_token_url=f"{env['AUTH0_BASE']}/oauth/token",
-    authorize_url=f"{env['AUTH0_BASE']}/authorize",
-    client_kwargs={
-        "scope": "openid profile email read:roles"
-    }
-)
-
-client = docker.from_env()
+@aiohttp_jinja2.template("home.html")
+async def does_work(req: web.Request) -> web.Response:
+    return {}
 
 
-@app.route("/callback")
-def callback_handling():
-    req = request
-    auth0.authorize_access_token()
-    resp = auth0.get("userinfo")
-    userinfo = resp.json()
+async def proxy_handler(req: web.Request) -> web.Response:
+    await code_server_manager.find_or_create_container(f"github_percyodi")
+    
+    reqH = req.headers.copy()
+    base_url = "http://github_percyodi:8080"
+    # Do web socket Stuff
+    if reqH["connection"] == "Upgrade" and reqH["upgrade"] == "websocket" and req.method == "GET":
+        ws_server = web.WebSocketResponse()
+        await ws_server.prepare(req)
+        print(f'##### WS_SERVER {ws_server}')
 
-    session["jwt_payload"] = userinfo
-    session["profile"] = {
-        "user_id": userinfo["sub"],
-        "name": userinfo["name"],
-        "picture": userinfo["picture"]
-    }
+        client_session = ClientSession(cookies=req.cookies)
 
-    return redirect("/home")
+        path_qs_cleaned = req.path_qs.removeprefix("/devenv")
+        async with client_session.ws_connect(base_url+path_qs_cleaned) as ws_client:
+            print(f'##### WS_CLIENT {ws_client}')
 
+            async def wsforward(ws_from,ws_to):
+                async for msg in ws_from:
+                    print(f'>>> msg: {msg}')
+                    mt = msg.type
+                    md = msg.data
+                    if mt == WSMsgType.TEXT:
+                        await ws_to.send_str(md)
+                    elif mt == WSMsgType.BINARY:
+                        await ws_to.send_bytes(md)
+                    elif mt == WSMsgType.PING:
+                        await ws_to.ping()
+                    elif mt == WSMsgType.PONG:
+                        await ws_to.pong()
+                    elif ws_to.closed:
+                        await ws_to.close(code=ws_to.close_code,message=msg.extra)
+                    else:
+                        raise ValueError(f'unexpected message type: {msg}')
 
-@app.route("/login")
-def login():
-    return auth0.authorize_redirect(redirect_uri=url_for("callback_handling", _external=True))
-    # return auth0.authorize_redirect(redirect_uri=f"http://localhost:{ port }/callback")
+            finished,unfinished = await asyncio.wait([wsforward(ws_server,ws_client),wsforward(ws_client,ws_server)],return_when=asyncio.FIRST_COMPLETED)
 
+            return ws_server
+    else: # Do http proxy
+        # proxyPath = req.match_info.get("proxyPath", "")
+        proxyPath = req.path_qs
+        if proxyPath != "":
+            proxyPath = proxyPath.removeprefix("/devenv").removeprefix("devenv").removeprefix("/")
+            proxyPath = "/" + proxyPath
+        async with client.request(
+            req.method,
+            base_url + proxyPath,
+            allow_redirects=False,
+            data = await req.read()
+        ) as res:
+            headers = res.headers.copy()
+            headers["service-worker-allowed"] = "/"
+            body = await res.read()
+            return web.Response(
+                headers=headers,
+                status = res.status,
+                body = body
+            )
 
-def requires_auth(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if "profile" not in session:
-            return redirect("/login")
-        return f(*args, **kwargs)
-    return decorated
+app = web.Application()
+app.add_routes([web.get("/", does_work)])
+app.add_routes([web.get(r'/devenv', proxy_handler)])
+app.add_routes([web.get(r'/{proxyPath:.*}', proxy_handler)])
+# app.add_routes([web.get(r'/{proxyPath:.*}', proxy_handler)])
 
-
-@app.route("/notloggedin")
-def not_logged_in():
-    return render_template("notLoggedIn.html")
-
-
-@app.route("/home")
-@requires_auth
-def home():
-    return render_template("home.html")
-
-
-@app.route("/logout")
-def logout():
-    session.clear()
-    params = {"returnTo": url_for(
-        'not_logged_in', _external=True), 'client_id': env["CLIENT_ID"]}
-    return redirect(auth0.api_base_url + '/v2/logout?' + urlencode(params))
-
-
-@app.route("/<path:subpath>")
-@app.route("/devenv", defaults={"subpath": None})
-@requires_auth
-def devenv(subpath):
-    container_name = session["profile"]["user_id"].replace("|", "_")
-    # try:
-    if container_name in [x.name for x in client.containers.list()]:
-        container = client.containers.get(container_name)
-        if container.status != "running":
-            container.start()
-    else:
-        client.containers.run("codercom/code-server:latest", "--auth none", detach=True,
-                            name=container_name, ports={8080: 8080}, network="my_network")
-        time.sleep(5)
-
-    if subpath is not None:
-        resp = requests.get(f"http://{container_name}:8080/{subpath}")
-    else:
-        resp = requests.get(f"http://{container_name}:8080")
-    headers = [(name, value) for (name, value) in resp.raw.headers.items()]
-    response = Response(resp.content, resp.status_code, headers)
-    return response
-    return redirect("http://localhost:8080")
+aiohttp_jinja2.setup(app,loader=jinja2.FileSystemLoader("./templates") )
 
 
-# @app.route("/<path:subpath>")
-# def wot(subpath):
-#     print(subpath)
-#     return jsonify({})
+
+web.run_app(app, port=5000)
