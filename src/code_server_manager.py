@@ -11,7 +11,7 @@ class CodeServerManager:
     async def find_or_create_container(self, container_name: str) -> None:
         container_name = container_name.replace("|", "_")
         # find or create the container
-        if container_name in [x.name for x in self.client.containers.list()]:
+        if container_name in [x.name for x in self.client.containers.list(all=True)]:
             container = self.client.containers.get(container_name)
             if container.status != "running":
                 container.start()

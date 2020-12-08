@@ -46,8 +46,8 @@ RUN curl -sL https://deb.nodesource.com/setup_15.x | sudo -E bash - && \
 RUN apt-get autoremove -y && apt-get clean -y && rm -rf /var/lib/apt/lists/* /tmp/library-scripts/
 
 # Installing python utilities
-RUN pip3 install --disable-pip-version-check --no-cache-dir --target=/usr/local/py-utils --upgrade \
-    autopep8 yapf flake8 mypy pycodestyle pydocstyle pylint
+RUN pip3 install --disable-pip-version-check --no-cache-dir --upgrade \
+    autopep8 black yapf flake8 mypy pycodestyle pydocstyle pylint
 
 # [Optional] If your pip requirements rarely change, uncomment this section to add them to the image.
 COPY src/requirements.txt /tmp/pip-tmp/
