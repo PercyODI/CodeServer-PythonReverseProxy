@@ -1,8 +1,6 @@
-<div class="login-box auth0-box before">
-    <img src="https://i.cloudup.com/StzWWrY34s.png" />
-    <h3>Auth0 Example</h3>
-    <p>Zero friction identity infrastructure, built for developers</p>
-    <h1>{{ is_logged_in }}</h1>
+<div class="login-box before">
+    <h1>Welcome to VUCS CodeServer</h1>
+    <h3>You are currently logged in: {{ is_logged_in }}</h3>
     {% if not is_logged_in %}
     <a class="btn btn-primary btn-lg btn-login btn-block" href="/login">Log In</a>
     {% else %}

@@ -11,3 +11,12 @@ oauth resources:
 - https://realpython.com/flask-google-login/
 - https://docs.aiohttp.org/en/stable/web_quickstart.html
 - https://docs.github.com/en/free-pro-team@latest/developers/apps/authorizing-oauth-apps
+
+ssl resources:
+
+- https://letsencrypt.org/docs/certificates-for-localhost/
+- 
+
+Create a local cert:
+
+`mkdir src/localcert && openssl req -x509 -out src/localcert/localhost.crt -keyout src/localcert/localhost.key -newkey rsa:2048 -nodes -sha256 -subj '/CN=localhost' -extensions EXT -config <( printf "[dn]\nCN=localhost\n[req]\ndistinguished_name = dn\n[EXT]\nsubjectAltName=DNS:localhost\nkeyUsage=digitalSignature\nextendedKeyUsage=serverAuth")`

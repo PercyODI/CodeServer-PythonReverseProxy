@@ -1,17 +1,18 @@
 import asyncio
-import json
-from os import environ as env
 import base64
+import json
+import ssl
+from os import environ as env
 
-from aiohttp import client, web, ClientSession, WSMsgType
 import aiohttp
 import aiohttp_jinja2
-from aiohttp_session import setup, get_session
-from aiohttp_session.cookie_storage import EncryptedCookieStorage
-
-from dotenv import find_dotenv, load_dotenv
 import jinja2
+from aiohttp import ClientSession, WSMsgType, client, web
+from aiohttp_session import get_session, setup
+from aiohttp_session.cookie_storage import EncryptedCookieStorage
+from dotenv import find_dotenv, load_dotenv
 from oauthlib.oauth2 import WebApplicationClient
+
 import if_debug
 from code_server_manager import CodeServerManager
 
@@ -175,8 +176,9 @@ app.add_routes([web.get(r"/{proxyPath:.*}", proxy_handler)])
 
 aiohttp_jinja2.setup(app, loader=jinja2.FileSystemLoader("./templates"))
 
-# ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-# ssl_context.load_cert_chain("/certs/localhost.crt", "/certs/localhost.key")
-
-# web.run_app(app, port=5000, ssl_context=ssl_context)
-web.run_app(app, port=5000)
+if "SSL_CRT_FILE" in env.keys() and "SSL_KEY_FILE" in env.keys():
+    ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+    ssl_context.load_cert_chain(env["SSL_CRT_FILE"], env["SSL_KEY_FILE"])
+    web.run_app(app, port=5000, ssl_context=ssl_context)
+else:
+    web.run_app(app, port=5000)
