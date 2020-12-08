@@ -2,12 +2,19 @@ import asyncio
 import json
 from os import environ as env
 from types import ClassMethodDescriptorType
+import base64
 
 from aiohttp import client, web, ClientSession, WSMsgType
+import aiohttp
 import aiohttp_jinja2
-from dotenv import find_dotenv, load_dotenv
-import jinja2
+from aiohttp_session import setup, get_session, session_middleware
+from aiohttp_session.cookie_storage import EncryptedCookieStorage
 
+from dotenv import find_dotenv, load_dotenv
+from dotenv.main import set_key
+import jinja2
+from oauthlib.oauth2 import WebApplicationClient
+from oauthlib.oauth2.rfc6749.clients import base
 import if_debug
 from code_server_manager import CodeServerManager
 
@@ -15,16 +22,73 @@ load_dotenv(find_dotenv())
 if_debug.attach_debugger_if_dev()
 code_server_manager = CodeServerManager()
 
+oath_client = WebApplicationClient(env["GITHUB_CLIENT_ID"])
+
+async def login(req: web.Request) -> web.Response:
+    request_uri = oath_client.prepare_request_uri(
+        env["GITHUB_URL"],
+        redirect_uri=str(req.url.parent) + "/callback",
+        scope=["openid", "email", "profile"]
+    )
+
+    raise web.HTTPFound(request_uri)
+
+
+@aiohttp_jinja2.template("home.html")
+async def callback(req: web.Request) -> web.Response:
+    code = req.query["code"]
+    token_url, headers, body = oath_client.prepare_token_request(
+        env["GITHUB_ACCESS_TOKEN"],
+        # authorization_response=str(req.url),
+        # redirect_url=str(req.url.parent),
+        code=code
+    )
+    headers["Accept"] = "application/json"
+    async with aiohttp.ClientSession() as session:
+        async with session.post(
+            token_url,
+            headers=headers,
+            data = body,
+            params=[("client_id", env["GITHUB_CLIENT_ID"]),("client_secret", env["GITHUB_CLIENT_SECRET"]),("code", code)]
+            # auth=(env["GITHUB_CLIENT_ID"], env["GITHUB_CLIENT_SECRET"])
+        ) as token_response:
+            data = await token_response.read()
+            print(data)
+            tokens = oath_client.parse_request_body_response(data)
+            print(tokens)
+            new_headers = {"Authorization": "token " + tokens.get("access_token")}
+            async with session.get(
+                "https://api.github.com/user",
+                headers=new_headers
+            ) as user_response:
+                user_data_str = await user_response.read()
+                user_data = json.loads(user_data_str)
+                print(user_data)
+                session = await get_session(req)
+                session["container_name"] = user_data["login"] + "_" + str(user_data["id"])
+                return {"is_logged_in": True}
+
+@aiohttp_jinja2.template("home.html")
+async def logout(req: web.Request) -> web.Response:
+    session = await get_session(req)
+    session.invalidate()
+    return {"is_logged_in": False}
+
 @aiohttp_jinja2.template("home.html")
 async def does_work(req: web.Request) -> web.Response:
-    return {}
+    sess = await get_session(req)
+    return {"is_logged_in": "container_name" in sess.keys()}
 
 
 async def proxy_handler(req: web.Request) -> web.Response:
-    await code_server_manager.find_or_create_container(f"github_percyodi")
-    
+    sess = await get_session(req)
+    if("container_name" not in sess.keys()):
+        raise web.HTTPFound("/login")
+    else:
+        container_name = sess["container_name"]
+    await code_server_manager.find_or_create_container(container_name)
     reqH = req.headers.copy()
-    base_url = "http://github_percyodi:8080"
+    base_url = f"http://{container_name}:8080"
     # Do web socket Stuff
     if reqH["connection"] == "Upgrade" and reqH["upgrade"] == "websocket" and req.method == "GET":
         ws_server = web.WebSocketResponse()
@@ -80,13 +144,24 @@ async def proxy_handler(req: web.Request) -> web.Response:
             )
 
 app = web.Application()
+
+# Set up sessions
+secret_key = base64.urlsafe_b64decode(env["FERNET_KEY"])
+setup(app, EncryptedCookieStorage(secret_key))
+
+# Set up routes
 app.add_routes([web.get("/", does_work)])
+app.add_routes([web.get("/login", login)])
+app.add_routes([web.get("/callback", callback)])
+app.add_routes([web.get("/logout", logout)])
 app.add_routes([web.get(r'/devenv', proxy_handler)])
 app.add_routes([web.get(r'/{proxyPath:.*}', proxy_handler)])
 # app.add_routes([web.get(r'/{proxyPath:.*}', proxy_handler)])
 
 aiohttp_jinja2.setup(app,loader=jinja2.FileSystemLoader("./templates") )
 
+# ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+# ssl_context.load_cert_chain("/certs/localhost.crt", "/certs/localhost.key")
 
-
+# web.run_app(app, port=5000, ssl_context=ssl_context)
 web.run_app(app, port=5000)

@@ -2,10 +2,12 @@
     <img src="https://i.cloudup.com/StzWWrY34s.png" />
     <h3>Auth0 Example</h3>
     <p>Zero friction identity infrastructure, built for developers</p>
+    <h1>{{ is_logged_in }}</h1>
+    {% if not is_logged_in %}
     <a class="btn btn-primary btn-lg btn-login btn-block" href="/login">Log In</a>
-    
+    {% else %}
     <a class="btn btn-primary btn-lg btn-login btn-block" href="/logout">Log Out</a>
     <br>
     <a class="btn btn-primary btn-lg btn-login btn-block" href="/devenv">Load Dev Environment</a>
-
+    {% endif %}
 </div>
