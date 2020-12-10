@@ -130,7 +130,7 @@ async def proxy_handler(req: web.Request) -> web.Response:
                     else:
                         raise ValueError(f"unexpected message type: {msg}")
 
-            finished, unfinished = await asyncio.wait(
+            await asyncio.wait(
                 [wsforward(ws_server, ws_client),
                  wsforward(ws_client, ws_server)],
                 return_when=asyncio.FIRST_COMPLETED,
@@ -180,5 +180,5 @@ if "SSL_CRT_FILE" in env.keys() and "SSL_KEY_FILE" in env.keys():
     ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
     ssl_context.load_cert_chain(env["SSL_CRT_FILE"], env["SSL_KEY_FILE"])
     web.run_app(app, port=5000, ssl_context=ssl_context)
-else:
-    web.run_app(app, port=5000)
+
+web.run_app(app, port=5000)

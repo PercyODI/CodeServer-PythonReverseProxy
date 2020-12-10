@@ -5,12 +5,13 @@
   "main": "src/server.py",
   "scripts": {
     "build": "docker build -t pyrevprox:latest .",
+    "start:prod": "docker run --name pyrevprox -v /var/run/docker.sock:/var/run/docker.sock -v /etc/letsencrypt/:/etc/letsencrypt/ -p 443:5000 --network my_network -d pyrevprox:latest",
     "start:dev": "npm run stop; npm run rm ; docker run --name pyrevprox -v /var/run/docker.sock:/var/run/docker.sock -p 5000:5000 -p 5678:5678 --network my_network -d -e DEBUG=True pyrevprox:latest && sleep 2s",
     "start:dev:old": "npm run stop; npm run rm ; docker run --name pyrevprox -v /var/run/docker.sock:/var/run/docker.sock -p 5000:5000 -p 5678:5678 --network my_network -d -e GEVENT_SUPPORT=True -e DEBUG=True pyrevprox:latest && sleep 2s",
     "debug": "npm run build && npm run start:dev",
+    "start": "npm run build && npm run stop ; npm run rm ; npm run start:prod",
     "stop": "docker stop pyrevprox",
-    "rm": "docker rm pyrevprox",
-    "createLocalCert": "openssl req -x509 -out src/localcert/localhost.crt -keyout src/localcert/localhost.key -newkey rsa:2048 -nodes -sha256 -subj '/CN=localhost' -extensions EXT -config <( printf \"[dn]\nCN=localhost\n[req]\ndistinguished_name = dn\n[EXT]\nsubjectAltName=DNS:localhost\nkeyUsage=digitalSignature\nextendedKeyUsage=serverAuth\")"
+    "rm": "docker rm pyrevprox"
   },
   "repository": {
     "type": "git",
