@@ -1,5 +1,5 @@
 import asyncio
-from os import confstr_names, environ as env
+from os import environ as env
 
 from aiohttp import ClientSession
 import docker
@@ -7,40 +7,49 @@ import docker
 
 class CodeServerManager:
     client: docker.DockerClient
+    container_name: str
 
-    def __init__(self) -> None:
+    def __init__(self, container_name) -> None:
         self.client = docker.from_env()
+        self.container_name = container_name.replace("|", "_")
         super().__init__()
 
-    async def find_or_create_container(self, container_name: str) -> None:
-        container_name = container_name.replace("|", "_")
+    def get_container_name(self):
+        return self.container_name
+
+    async def find_or_create_container(self) -> None:
         # find or create the container
-        if container_name in [x.name for x in self.client.containers.list(all=True)]:
-            container = self.client.containers.get(container_name)
+        if self.container_name in [
+            x.name for x in self.client.containers.list(all=True)
+        ]:
+            container = self.client.containers.get(self.container_name)
             if container.status != "running":
                 container.start()
         else:
             if "VOLUMEPATH" in env.keys():
                 volumes_obj = {
-                    env["VOLUMEPATH"]: {
-                        "bind": "/home/coder/project",
-                        "mode": "rw"
-                    }
+                    f"{env['VOLUMEPATH']}/{self.container_name}": {"bind": "/home", "mode": "rw"}
                 }
             else:
                 volumes_obj = None
-            self.client.containers.run("codercom/code-server:latest", "--auth none", detach=True,
-                                       name=container_name, network="my_network", volumes=volumes_obj)
-            await self.wait_for_container(container_name)
+            self.client.containers.run(
+                "percyodi/code-server:20201210",
+                "--auth none",
+                detach=True,
+                name=self.container_name,
+                network="my_network",
+                volumes=volumes_obj,
+            )
+            await self.wait_for_container()
 
-    async def wait_for_container(self, container_name: str) -> None:
+    async def wait_for_container(self) -> None:
         container_up = False
         while not container_up:
             try:
                 async with ClientSession() as session:
                     async with session.get(
-                        f"http://{container_name}:8080/healthz",
-                        allow_redirects=True
+                        f"http://{self.container_name}:8080/healthz",
+                        allow_redirects=True,
                     ) as res:
                         await res.read()
                         print("Container up.")

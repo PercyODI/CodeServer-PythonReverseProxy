@@ -18,7 +18,6 @@ from code_server_manager import CodeServerManager
 
 load_dotenv(find_dotenv())
 if_debug.attach_debugger_if_dev()
-code_server_manager = CodeServerManager()
 
 oath_client = WebApplicationClient(env["GITHUB_CLIENT_ID"])
 
@@ -59,8 +58,7 @@ async def callback(req: web.Request) -> web.Response:
             print(data)
             tokens = oath_client.parse_request_body_response(data)
             print(tokens)
-            new_headers = {"Authorization": "token " +
-                           tokens.get("access_token")}
+            new_headers = {"Authorization": "token " + tokens.get("access_token")}
             async with session.get(
                 "https://api.github.com/user", headers=new_headers
             ) as user_response:
@@ -93,7 +91,8 @@ async def proxy_handler(req: web.Request) -> web.Response:
         raise web.HTTPFound("/login")
     else:
         container_name = sess["container_name"]
-    await code_server_manager.find_or_create_container(container_name)
+    code_server_manager = CodeServerManager(container_name)
+    await code_server_manager.find_or_create_container()
     reqH = req.headers.copy()
     base_url = f"http://{container_name}:8080"
     # Do web socket Stuff
@@ -131,14 +130,12 @@ async def proxy_handler(req: web.Request) -> web.Response:
                         raise ValueError(f"unexpected message type: {msg}")
 
             await asyncio.wait(
-                [wsforward(ws_server, ws_client),
-                 wsforward(ws_client, ws_server)],
+                [wsforward(ws_server, ws_client), wsforward(ws_client, ws_server)],
                 return_when=asyncio.FIRST_COMPLETED,
             )
 
             return ws_server
     else:  # Do http proxy
-        # proxyPath = req.match_info.get("proxyPath", "")
         proxyPath = req.path_qs
         if proxyPath != "":
             proxyPath = (
