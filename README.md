@@ -24,7 +24,10 @@ Create a local cert:
 
 1. Get a server
 1. git clone this project
+1. Create a group called `coderg` with the gid 1024
+1. Create a user called `coder` with the uid 1000 with group `coderg`
 1. Install SSL certs or run certbot for free LetsEncrypt SSL
-1. Add/edit your `/src/.env` file
+1. Add/edit your `src/.env` file
 1. npm run build:codeserverdocker
+  - This builds the customized code-server image
 1. npm start

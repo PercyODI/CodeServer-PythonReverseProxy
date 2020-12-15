@@ -1,5 +1,7 @@
 import asyncio
 from os import environ as env
+import os
+import pwd
 
 from aiohttp import ClientSession
 import docker
@@ -27,18 +29,25 @@ class CodeServerManager:
                 container.start()
         else:
             if "VOLUMEPATH" in env.keys():
-                volumes_obj = {
-                    f"{env['VOLUMEPATH']}/{self.container_name}": {"bind": "/home", "mode": "rw"}
-                }
+                home_dir_path = f"{env['VOLUMEPATH']}/{self.container_name}"
+                if not os.path.exists(home_dir_path):
+                    os.mkdir(home_dir_path)
+                    os.chown(home_dir_path, uid=1000, gid=1024)
+                    os.mkdir(f"{home_dir_path}/coder")
+                    os.chown(f"{home_dir_path}/coder", uid=1000, gid=1024)
+
+                volumes_obj = {home_dir_path: {"bind": "/home", "mode": "rw"}}
             else:
                 volumes_obj = None
             self.client.containers.run(
-                "percyodi/code-server:20201210",
+                # "percyodi/code-server:20201210",
+                "codercom/code-server:latest",
                 "--auth none",
                 detach=True,
                 name=self.container_name,
                 network="my_network",
                 volumes=volumes_obj,
+                user="1000:1024",
             )
             await self.wait_for_container()
 
